@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# NP++ back file?
+*.bak
+
+# pycharm folder
+.idea

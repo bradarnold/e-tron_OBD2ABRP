@@ -1,17 +1,13 @@
-# This is a sample Python script.
+# Assumes ODBLink MX on Bluetooth COM port, attached to 2019 Audi e-tron. Should also work with other ELM327 adapters.
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import collections
-
 import np as np
 import serial
 import time
-
-
-# Press the green button in the gutter to run the script.
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
+import logging, sys
+
 
 def getdata(i):
     adapter.write(b'03221e3b55555555\r')  #
@@ -57,110 +53,116 @@ def getdata(i):
     print("DCFC:     " + str(fast_charging))
     print()
 
+    # append power and voltage for plotting
     powers.popleft()
     powers.append(voltage * current / 1000)
     voltages.popleft()
     voltages.append(voltage)
 
+    # configure power plot
     ax.cla()
     ax.plot(powers)
     ax.scatter(len(powers) - 1, powers[-1])
     ax.text(len(powers) - 1, powers[-1], "{:.2f}kW".format(powers[-1]))
     ax.set_ylim(min(0, min(powers)), max(0, max(powers)))
 
+    # configure voltage plot
     ax1.cla()
     ax1.plot(voltages)
     ax1.scatter(len(voltages) - 1, voltages[-1])
     ax1.text(len(voltages) - 1, voltages[-1], "{:.2f}V".format(voltages[-1]))
     ax1.set_ylim(0, max(voltages))
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     print('Running!')
+
     adapter = serial.Serial(port='COM7', timeout=1)
     if adapter.isOpen():
-        print("Interface Open")
+        logging.info("Interface Open")
 
-    print("init commands")
-    print("ATD")
+    logging.info("Sending init commands")
+    logging.debug("ATD")
     adapter.write(b'ATD\r')  # defaults
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATZ")
+    logging.debug("ATZ")
     adapter.write(b'ATZ\r')  # reset
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATE0")
+    logging.debug("ATE0")
     adapter.write(b'ATE0\r')  # echo off
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATL0")
+    logging.debug("ATL0")
     adapter.write(b'ATL0\r')  # linefeeds off
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATSP7")
+    logging.debug("ATSP7")
     adapter.write(b'ATSP7\r')  # set protocol 7
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATBI")
+    logging.debug("ATBI")
     adapter.write(b'ATBI\r')  # bypass initialization
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
     # start config'ing for EV #
 
-    print("ATSH FC007B")
+    logging.debug("ATSH FC007B")
     adapter.write(b'ATSH FC007B\r')  # set header FC 00 7B
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATCP 17")
+    logging.debug("ATCP 17")
     adapter.write(b'ATCP 17\r')  # can priority 17
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATCAF0")
+    logging.debug("ATCAF0")
     adapter.write(b'ATCAF0\r')  # can automatic formatting off
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATCF 17FE7")
+    logging.debug("ATCF 17FE7")
     adapter.write(b'ATCF 17F\r')  # can id filter set to 17FE7
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
-    print("ATCRA 17FE007B")
-    adapter.write(b'ATCRA 17FE007B\r')  # can id filter set to 17FE7
+    logging.debug("ATCRA 17FE007B")
+    adapter.write(b'ATCRA 17FE007B\r')  # can receive address to 17FE007B
     # read response
-    print(adapter.read_until(expected=b'\r'))
+    logging.debug(adapter.read_until(expected=b'\r'))
     # wait for CLI
-    print(adapter.read_until(expected=b'>'))
+    logging.debug(adapter.read_until(expected=b'>'))
 
+    # set up graphing
     powers = collections.deque(np.zeros(60))
     voltages = collections.deque(np.zeros(60))
     # define and adjust figure
@@ -169,10 +171,6 @@ if __name__ == '__main__':
     ax1 = plt.subplot(122)
     ax.set_facecolor('#DEDEDE')
     ax1.set_facecolor('#DEDEDE')
-
-    # while 1:
-    #     getdata(0)
-    #     time.sleep(1)
 
     ani = FuncAnimation(fig, getdata, interval=1000)
     plt.show()

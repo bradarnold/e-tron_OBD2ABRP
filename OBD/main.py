@@ -9,36 +9,25 @@ from matplotlib.animation import FuncAnimation
 import logging, sys
 
 
-def getdata(i):
-    adapter.write(b'03221e3b55555555\r')  #
-    voltage = int((adapter.read_until(expected=b'\r').replace(b' ', b''))[8:12], 16) / 10
+def send_elm_cmd(command):
+    logging.debug(b'Sending ' + command)
+    adapter.write(command + b'\r')
+    # read response
+    response = adapter.read_until(expected=b'\r')
+    logging.debug(response)
     # wait for CLI
-    adapter.read_until(expected=b'>')
+    logging.debug(adapter.read_until(expected=b'>'))
+    return response
 
-    adapter.write(b'03221e3d55555555\r')  #
-    current = -1 * (int((adapter.read_until(expected=b'\r').replace(b' ', b''))[8:14], 16) - 150000) / 100
-    # wait for CLI
-    adapter.read_until(expected=b'>')
 
-    adapter.write(b'0322028C55555555\r')  #
-    soc = int((adapter.read_until(expected=b'\r').replace(b' ', b''))[8:10], 16)
-    # wait for CLI
-    adapter.read_until(expected=b'>')
+def get_data(i):
+    voltage = int((send_elm_cmd(b'03221e3b55555555').replace(b' ', b''))[8:12], 16) / 10
+    current = -1 * (int((send_elm_cmd(b'03221e3d55555555').replace(b' ', b''))[8:14], 16) - 150000) / 100
+    soc = int((send_elm_cmd(b'0322028C55555555').replace(b' ', b''))[8:10], 16)
+    batt_temp_max = (int((send_elm_cmd(b'03221e0e55555555\r').replace(b' ', b''))[8:10], 16) - 100)
+    batt_temp_min = (int((send_elm_cmd(b'03221e0f55555555').replace(b' ', b''))[8:10], 16) - 100)
+    state = int((send_elm_cmd(b'0322744855555555').replace(b' ', b''))[8:10], 16)
 
-    adapter.write(b'03221e0e55555555\r')  #
-    batt_temp_max = (int((adapter.read_until(expected=b'\r').replace(b' ', b''))[8:10], 16) - 100)
-    # wait for CLI
-    adapter.read_until(expected=b'>')
-
-    adapter.write(b'03221e0f55555555\r')  #
-    batt_temp_min = (int((adapter.read_until(expected=b'\r').replace(b' ', b''))[8:10], 16) - 100)
-    # wait for CLI
-    adapter.read_until(expected=b'>')
-
-    adapter.write(b'0322744855555555\r')  #
-    state = int((adapter.read_until(expected=b'\r').replace(b' ', b''))[8:10], 16)
-    # wait for CLI
-    adapter.read_until(expected=b'>')
     ignition_on = bool(state & 0x1)
     charging = bool(state & 0x4)
     fast_charging = bool(state & 0x2)
@@ -83,84 +72,17 @@ if __name__ == '__main__':
         logging.info("Interface Open")
 
     logging.info("Sending init commands")
-    logging.debug("ATD")
-    adapter.write(b'ATD\r')  # defaults
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATZ")
-    adapter.write(b'ATZ\r')  # reset
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATE0")
-    adapter.write(b'ATE0\r')  # echo off
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATL0")
-    adapter.write(b'ATL0\r')  # linefeeds off
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATSP7")
-    adapter.write(b'ATSP7\r')  # set protocol 7
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATBI")
-    adapter.write(b'ATBI\r')  # bypass initialization
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    # start config'ing for EV #
-
-    logging.debug("ATSH FC007B")
-    adapter.write(b'ATSH FC007B\r')  # set header FC 00 7B
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATCP 17")
-    adapter.write(b'ATCP 17\r')  # can priority 17
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATCAF0")
-    adapter.write(b'ATCAF0\r')  # can automatic formatting off
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATCF 17FE7")
-    adapter.write(b'ATCF 17F\r')  # can id filter set to 17FE7
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
-
-    logging.debug("ATCRA 17FE007B")
-    adapter.write(b'ATCRA 17FE007B\r')  # can receive address to 17FE007B
-    # read response
-    logging.debug(adapter.read_until(expected=b'\r'))
-    # wait for CLI
-    logging.debug(adapter.read_until(expected=b'>'))
+    send_elm_cmd(b'ATD') # defaults
+    send_elm_cmd(b'ATZ')  # reset
+    send_elm_cmd(b'ATE0')  # echo off
+    send_elm_cmd(b'ATL0')  # linefeeds off
+    send_elm_cmd(b'ATSP7')  # set protocol 7
+    send_elm_cmd(b'ATBI')  # bypass initialization
+    send_elm_cmd(b'ATSH FC007B')  # set header FC 00 7B
+    send_elm_cmd(b'ATCP 17')  # can priority 17
+    send_elm_cmd(b'ATCAF0')  # can automatic formatting off
+    send_elm_cmd(b'ATCF 17F')  # can id filter set to 17F
+    send_elm_cmd(b'ATCRA 17FE007B')  # can receive address to 17FE007B
 
     # set up graphing
     powers = collections.deque(np.zeros(60))
@@ -172,7 +94,7 @@ if __name__ == '__main__':
     ax.set_facecolor('#DEDEDE')
     ax1.set_facecolor('#DEDEDE')
 
-    ani = FuncAnimation(fig, getdata, interval=1000)
+    ani = FuncAnimation(fig, get_data, interval=1000)
     plt.show()
 
     print("closing!")

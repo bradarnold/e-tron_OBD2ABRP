@@ -1,6 +1,7 @@
 # Assumes ODBLink MX on Bluetooth COM port, attached to 2019 Audi e-tron. Should also work with other ELM327 adapters.
 
 import collections
+import json
 import numpy as np
 import serial
 import time
@@ -58,16 +59,14 @@ def get_data(i=0):
         logging.error("Unexpected value received from ECU")
     try:
         soc = int((send_elm_cmd(b'0322028C55555555').replace(b' ', b''))[8:10], 16)
+        # note: doesn't match dash. I think this is "true" SOC, and might need to be scaled by min and max SOC to match
+        # the dash
     except ValueError:
         logging.error("Unexpected value received from ECU")
-    try:
-        batt_temp_max = (int((send_elm_cmd(b'03221e0e55555555\r').replace(b' ', b''))[8:10], 16) - 100)
-    except ValueError:
-        logging.error("Unexpected value received from ECU")
-    try:
-        batt_temp_min = (int((send_elm_cmd(b'03221e0f55555555').replace(b' ', b''))[8:10], 16) - 100)
-    except ValueError:
-        logging.error("Unexpected value received from ECU")
+    #try:
+    #    batt_temp_min = (int((send_elm_cmd(b'03221e0f55555555').replace(b' ', b''))[8:10], 16) - 100)
+    #except ValueError:
+    #    logging.error("Unexpected value received from ECU")
     try:
         batt_temp = (int((send_elm_cmd(b'03222a0b55555555').replace(b' ', b''))[8:10], 16) - 100)
     except ValueError:
@@ -81,21 +80,20 @@ def get_data(i=0):
         logging.error("Unexpected value received from ECU")
     curtime = int(time.time())
 
-    url = 'https://api.iternio.com/1/tlm/send?api_key=' + APIKEY + '&token=' + TOKEN + '&tlm={' + \
-        '"utc":' + str(curtime) + ',' + \
-        '"soc":' + str(soc) + ',' + \
-        '"power":' + "{:.3f}".format(voltage * current / 1000) + ',' + \
-        '"speed":0' + ',' + \
-        '"is_charging":' + str(charging) + ',' + \
-        '"is_dcfc":' + str(fast_charging) + ',' + \
-        '"capacity ":79' + ',' + \
-        '"ext_temp":0' + ',' + \
-        '"bat_temp":' + str(batt_temp) + ',' + \
-        '"voltage":' + str(voltage) + ',' + \
-        '"current":' + str(current) + ',' + \
-        '"odometer":79' + ',' + \
-        '"est_battery_range":79' + '}'
-    print(url)
+    tlm = {
+        "utc": curtime,
+        "soc": soc,
+        "power": "{:.3f}".format(voltage * current / 1000),
+        "is_charging": charging,
+        "is_dcfc": fast_charging,
+        "batt_temp": batt_temp,
+        "voltage": voltage,
+        "current": current
+    }
+    url = f"https://api.iternio.com/1/tlm/send?api_key={APIKEY}&token={TOKEN}&tlm={json.dumps(tlm)}"
+    logging.debug(url)
+    result = requests.post(url)
+    logging.debug(result.text)
 
     # capacity: try unit 17 Header 714/77E, 22 22 E4	(aa*2^8+bb)/10	kWh
     # outside temp: try unit 01 Header 7E0/7E8, 22 F4 46	aa-40	°C	Outside temperature
@@ -110,7 +108,7 @@ def get_data(i=0):
     print("Current:  %.2fA" % current)
     print("Power:    %.2fkW" % (voltage * current / 1000))
     print("SoC:      " + str(soc) + "%")
-    print("Batt Temp min/max: " + str(batt_temp_min) + "/" + str(batt_temp_max) + "°C")
+    print("Batt Temp: " + str(batt_temp) + "°C")
     print("Ignition: " + str(ignition_on))
     print("Charging: " + str(charging))
     print("DCFC:     " + str(fast_charging))
@@ -141,7 +139,7 @@ def get_data(i=0):
 
 if __name__ == '__main__':
     # setup logging
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     print('Starting up...')
 
@@ -153,7 +151,7 @@ if __name__ == '__main__':
     TOKEN = f.read().replace("\n", "")
     logging.info("TOKEN: " + TOKEN)
 
-    adapter = serial.Serial(port='COM5', timeout=1)
+    adapter = serial.Serial(port='COM7', timeout=1)
     if adapter.isOpen():
         logging.info("Interface Open")
 
@@ -187,7 +185,7 @@ if __name__ == '__main__':
     else:
         while 1:
             get_data()
-            time.sleep(1)
+            time.sleep(10)
 
     print("closing!")
     adapter.close()

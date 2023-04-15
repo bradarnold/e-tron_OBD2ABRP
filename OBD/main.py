@@ -80,20 +80,26 @@ def get_data(i=0):
         logging.error("Unexpected value received from ECU")
     curtime = int(time.time())
 
+    m = 1.1922
+    b = -14.517
+    dash_soc = m * soc + b
+
     tlm = {
         "utc": curtime,
-        "soc": soc,
-        "power": "{:.3f}".format(voltage * current / 1000),
+        "soc": dash_soc,
         "is_charging": charging,
         "is_dcfc": fast_charging,
         "batt_temp": batt_temp,
         "voltage": voltage,
         "current": current
     }
-    url = f"https://api.iternio.com/1/tlm/send?api_key={APIKEY}&token={TOKEN}&tlm={json.dumps(tlm)}"
-    logging.debug(url)
-    result = requests.post(url)
-    logging.debug(result.text)
+    try:
+        url = f"https://api.iternio.com/1/tlm/send?api_key={APIKEY}&token={TOKEN}&tlm={json.dumps(tlm)}"
+        logging.debug(url)
+        result = requests.post(url)
+        logging.debug(result.text)
+    except:
+        logging.error("something went wrong")
 
     # capacity: try unit 17 Header 714/77E, 22 22 E4	(aa*2^8+bb)/10	kWh
     # outside temp: try unit 01 Header 7E0/7E8, 22 F4 46	aa-40	°C	Outside temperature
@@ -107,7 +113,8 @@ def get_data(i=0):
     print("Voltage:  " + str(voltage) + "V")
     print("Current:  %.2fA" % current)
     print("Power:    %.2fkW" % (voltage * current / 1000))
-    print("SoC:      " + str(soc) + "%")
+    print("CAN SoC:  " + str(soc) + "%")
+    print("Dash SoC: %.1f%%" % dash_soc)
     print("Batt Temp: " + str(batt_temp) + "°C")
     print("Ignition: " + str(ignition_on))
     print("Charging: " + str(charging))
@@ -185,7 +192,7 @@ if __name__ == '__main__':
     else:
         while 1:
             get_data()
-            time.sleep(10)
+            time.sleep(5)
 
     print("closing!")
     adapter.close()

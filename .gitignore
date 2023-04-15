@@ -133,3 +133,7 @@ dmypy.json
 
 # pycharm folder
 .idea
+
+# ABRP API key and vehicle token
+/OBD/APIKEY
+/OBD/TOKEN
